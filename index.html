@@ -147,6 +147,7 @@ html, body {
 
 .pin-card {
   background: var(--card); border: 1px solid var(--border);
+  user-select: none; -webkit-user-select: none;
   border-radius: 18px; padding: 18px; margin-bottom: 12px;
   display: flex; flex-direction: column; gap: 12px;
   transition: border-color .2s;
@@ -437,21 +438,30 @@ var _renamingId = null;
 var _pressTimer = null;
 
 function attachLongPress(cardEl, id) {
+  var startX, startY;
   function onStart(e) {
+    var t = e.touches ? e.touches[0] : e;
+    startX = t.clientX; startY = t.clientY;
     cardEl.classList.add('pressing');
     _pressTimer = setTimeout(function() {
       cardEl.classList.remove('pressing');
       openRename(id);
     }, 500);
   }
+  function onMove(e) {
+    var t = e.touches ? e.touches[0] : e;
+    if (Math.abs(t.clientX - startX) > 8 || Math.abs(t.clientY - startY) > 8) onEnd();
+  }
   function onEnd() {
     clearTimeout(_pressTimer);
     cardEl.classList.remove('pressing');
   }
   cardEl.addEventListener('touchstart', onStart, { passive: true });
+  cardEl.addEventListener('touchmove', onMove, { passive: true });
   cardEl.addEventListener('touchend', onEnd);
   cardEl.addEventListener('touchcancel', onEnd);
   cardEl.addEventListener('mousedown', onStart);
+  cardEl.addEventListener('mousemove', onMove);
   cardEl.addEventListener('mouseup', onEnd);
   cardEl.addEventListener('mouseleave', onEnd);
 }
@@ -461,11 +471,11 @@ function openRename(id) {
   if (!pin) return;
   _renamingId = id;
   var input = document.getElementById('renameInput');
-  input.value = pin.name;
+  input.value = '';
+  input.placeholder = pin.name;
   document.getElementById('renameOverlay').classList.add('on');
   document.getElementById('renameModal').classList.add('on');
   input.focus();
-  input.select();
 }
 
 function closeRename() {
@@ -477,7 +487,8 @@ function closeRename() {
 function saveRename() {
   if (!_renamingId) return;
   var pin = pins.find(function(p) { return p.id === _renamingId; });
-  var val = document.getElementById('renameInput').value.trim();
+  var input = document.getElementById('renameInput');
+  var val = input.value.trim() || input.placeholder;
   if (pin && val) { pin.name = val; savePins(); }
   closeRename();
   render();
