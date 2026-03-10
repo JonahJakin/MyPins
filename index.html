@@ -464,7 +464,8 @@ function openRename(id) {
   input.value = pin.name;
   document.getElementById('renameOverlay').classList.add('on');
   document.getElementById('renameModal').classList.add('on');
-  setTimeout(function() { input.focus(); input.select(); }, 320);
+  input.focus();
+  input.select();
 }
 
 function closeRename() {
