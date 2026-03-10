@@ -54,7 +54,7 @@ html, body {
 
 /* ── HEADER ── */
 .header {
-  padding: 56px 24px 20px;
+  padding: 80px 24px 20px;
   display: flex; align-items: flex-end; justify-content: space-between;
   flex-shrink: 0;
 }
@@ -268,6 +268,56 @@ html, body {
   font-size: 11px; color: var(--sub);
   font-family: 'DM Mono', monospace;
 }
+
+/* ── RENAME MODAL ── */
+.rename-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.6);
+  backdrop-filter: blur(4px); z-index: 200;
+  opacity: 0; pointer-events: none; transition: opacity .25s;
+}
+.rename-overlay.on { opacity: 1; pointer-events: all; }
+.rename-modal {
+  position: fixed; bottom: 0; left: 50%; transform: translateX(-50%) translateY(100%);
+  width: 100%; max-width: 430px;
+  background: var(--card); border-radius: 24px 24px 0 0;
+  padding: 16px 24px calc(32px + var(--safe));
+  z-index: 201; transition: transform .3s cubic-bezier(.2,0,.2,1);
+  display: flex; flex-direction: column; gap: 16px;
+}
+.rename-modal.on { transform: translateX(-50%) translateY(0); }
+.rename-handle {
+  width: 36px; height: 4px; border-radius: 2px;
+  background: var(--border2); margin: 0 auto 4px;
+}
+.rename-title {
+  font-size: 16px; font-weight: 700; color: var(--text); text-align: center;
+}
+.rename-input {
+  width: 100%; height: 48px; background: var(--surface);
+  border: 1px solid var(--border2); border-radius: 12px;
+  color: var(--text); font-family: 'Outfit', sans-serif;
+  font-size: 15px; padding: 0 14px; outline: none;
+  transition: border-color .2s;
+}
+.rename-input:focus { border-color: var(--accent); }
+.rename-btns { display: flex; gap: 10px; }
+.rename-save {
+  flex: 1; height: 46px; border-radius: 12px; border: none;
+  background: var(--accent); color: #fff;
+  font-family: 'Outfit', sans-serif; font-size: 14px; font-weight: 700;
+  cursor: pointer; transition: opacity .15s;
+}
+.rename-save:active { opacity: .8; }
+.rename-cancel {
+  flex: 1; height: 46px; border-radius: 12px; border: 1px solid var(--border2);
+  background: transparent; color: var(--sub);
+  font-family: 'Outfit', sans-serif; font-size: 14px; font-weight: 600;
+  cursor: pointer; transition: opacity .15s;
+}
+.rename-cancel:active { opacity: .8; }
+
+/* Long-press visual feedback */
+.pin-card.pressing { border-color: var(--accent); transition: border-color .1s; }
 </style>
 </head>
 <body>
@@ -305,6 +355,18 @@ html, body {
 
 <div class="toast" id="toast"></div>
 
+
+<!-- Rename modal -->
+<div class="rename-overlay" id="renameOverlay" onclick="closeRename()"></div>
+<div class="rename-modal" id="renameModal">
+  <div class="rename-handle"></div>
+  <div class="rename-title">Rename Pin</div>
+  <input class="rename-input" id="renameInput" type="text" maxlength="40" placeholder="Pin name...">
+  <div class="rename-btns">
+    <button class="rename-save" onclick="saveRename()">Save</button>
+    <button class="rename-cancel" onclick="closeRename()">Cancel</button>
+  </div>
+</div>
 <script>
 // ── STATE ──────────────────────────────────────────────────────────────
 var pins = [];
@@ -371,29 +433,56 @@ function deletePin(id) {
 }
 
 // ── RENAME ─────────────────────────────────────────────────────────────
-function startRename(id) {
-  var el = document.getElementById('pname-' + id);
-  if (!el) return;
-  el.contentEditable = 'true';
-  el.focus();
-  // select all
-  var range = document.createRange();
-  range.selectNodeContents(el);
-  window.getSelection().removeAllRanges();
-  window.getSelection().addRange(range);
-  el.addEventListener('blur', function handler() {
-    el.contentEditable = 'false';
-    var pin = pins.find(function(p) { return p.id === id; });
-    if (pin) {
-      pin.name = el.textContent.trim() || pin.name;
-      savePins();
-    }
-    el.removeEventListener('blur', handler);
-  });
-  el.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') { e.preventDefault(); el.blur(); }
-  });
+var _renamingId = null;
+var _pressTimer = null;
+
+function attachLongPress(cardEl, id) {
+  function onStart(e) {
+    cardEl.classList.add('pressing');
+    _pressTimer = setTimeout(function() {
+      cardEl.classList.remove('pressing');
+      openRename(id);
+    }, 500);
+  }
+  function onEnd() {
+    clearTimeout(_pressTimer);
+    cardEl.classList.remove('pressing');
+  }
+  cardEl.addEventListener('touchstart', onStart, { passive: true });
+  cardEl.addEventListener('touchend', onEnd);
+  cardEl.addEventListener('touchcancel', onEnd);
+  cardEl.addEventListener('mousedown', onStart);
+  cardEl.addEventListener('mouseup', onEnd);
+  cardEl.addEventListener('mouseleave', onEnd);
 }
+
+function openRename(id) {
+  var pin = pins.find(function(p) { return p.id === id; });
+  if (!pin) return;
+  _renamingId = id;
+  var input = document.getElementById('renameInput');
+  input.value = pin.name;
+  document.getElementById('renameOverlay').classList.add('on');
+  document.getElementById('renameModal').classList.add('on');
+  setTimeout(function() { input.focus(); input.select(); }, 320);
+}
+
+function closeRename() {
+  document.getElementById('renameOverlay').classList.remove('on');
+  document.getElementById('renameModal').classList.remove('on');
+  _renamingId = null;
+}
+
+function saveRename() {
+  if (!_renamingId) return;
+  var pin = pins.find(function(p) { return p.id === _renamingId; });
+  var val = document.getElementById('renameInput').value.trim();
+  if (pin && val) { pin.name = val; savePins(); }
+  closeRename();
+  render();
+}
+
+
 
 // ── NAVIGATE ───────────────────────────────────────────────────────────
 function navigateTo(lat, lng, app) {
@@ -459,7 +548,7 @@ function render() {
           '<div class="pin-info">' +
             '<div class="pin-name-row">' +
               '<div class="pin-number">' + (idx + 1) + '</div>' +
-              '<div id="pname-' + pin.id + '" class="pin-name" onclick="startRename(' + pin.id + ')">' +
+              '<div id="pname-' + pin.id + '" class="pin-name">' +
                 escHtml(pin.name) +
               '</div>' +
             '</div>' +
@@ -485,6 +574,12 @@ function render() {
 
   area.innerHTML = html;
 
+  // Attach long-press to each card
+  pins.forEach(function(pin) {
+    var cardEl = document.getElementById('card-' + pin.id);
+    if (cardEl) attachLongPress(cardEl, pin.id);
+  });
+
   // Live-update times
   clearInterval(timeTimer);
   timeTimer = setInterval(function() {
@@ -504,6 +599,10 @@ var timeTimer;
 // ── INIT ───────────────────────────────────────────────────────────────
 loadPins();
 render();
+document.getElementById('renameInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') saveRename();
+  if (e.key === 'Escape') closeRename();
+});
 </script>
 </body>
 </html>
