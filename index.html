@@ -407,6 +407,7 @@ html, body {
 // ── STATE ──────────────────────────────────────────────────────────────
 var pins = [];
 var _enteringPinId = null;
+var saveLoadingTimer = null;
 
 function loadPins() {
   try { pins = JSON.parse(localStorage.getItem('pp_pins') || '[]'); } catch(e) { pins = []; }
@@ -430,10 +431,14 @@ function savePin() {
   if (pins.length >= 3) { showToast('Remove a pin first', true); return; }
 
   var btn = document.getElementById('saveBtn');
-  btn.classList.add('loading');
+  clearTimeout(saveLoadingTimer);
+  saveLoadingTimer = setTimeout(function() {
+    btn.classList.add('loading');
+  }, 180);
 
   navigator.geolocation.getCurrentPosition(
     function(pos) {
+      clearTimeout(saveLoadingTimer);
       btn.classList.remove('loading');
       var lat = pos.coords.latitude;
       var lng = pos.coords.longitude;
@@ -453,6 +458,7 @@ function savePin() {
       showToast('📍 Pin saved!');
     },
     function(err) {
+      clearTimeout(saveLoadingTimer);
       btn.classList.remove('loading');
       var msg = err.code === 1 ? 'Location access denied' :
                 err.code === 2 ? 'Location unavailable' : 'Location timed out';
