@@ -313,11 +313,15 @@ html, body {
   z-index: 201; transition: transform .24s cubic-bezier(.2,0,.2,1), opacity .24s;
   display: flex; flex-direction: column; gap: 16px;
   opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
   box-shadow: 0 24px 80px rgba(0,0,0,.35);
 }
 .rename-modal.on {
   transform: translate(-50%, -50%);
   opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
 }
 .rename-handle {
   width: 36px; height: 4px; border-radius: 2px;
@@ -429,7 +433,6 @@ function savePin() {
 
   navigator.geolocation.getCurrentPosition(
     function(pos) {
-      btn.classList.remove('loading');
       var lat = pos.coords.latitude;
       var lng = pos.coords.longitude;
       var acc = Math.round(pos.coords.accuracy);
@@ -488,6 +491,8 @@ function openRename(id) {
 }
 
 function closeRename() {
+  var input = document.getElementById('renameInput');
+  input.blur();
   document.getElementById('renameOverlay').classList.remove('on');
   document.getElementById('renameModal').classList.remove('on');
   _renamingId = null;
