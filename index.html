@@ -152,8 +152,8 @@ html, body {
   border-radius: 18px; padding: 18px; margin-bottom: 12px;
   display: flex; flex-direction: column; gap: 12px;
   transition: border-color .2s;
-  animation: slideIn .3s cubic-bezier(.2,0,.2,1);
 }
+.pin-card.pin-card-enter { animation: slideIn .24s cubic-bezier(.2,0,.2,1); }
 .pin-card:active { border-color: var(--border2); }
 
 @keyframes slideIn {
@@ -406,6 +406,7 @@ html, body {
 <script>
 // ── STATE ──────────────────────────────────────────────────────────────
 var pins = [];
+var _enteringPinId = null;
 
 function loadPins() {
   try { pins = JSON.parse(localStorage.getItem('pp_pins') || '[]'); } catch(e) { pins = []; }
@@ -445,6 +446,7 @@ function savePin() {
         savedAt: Date.now(),
       };
       pins.push(pin);
+      _enteringPinId = pin.id;
       savePins();
       render();
       showToast('📍 Pin saved!');
@@ -606,7 +608,7 @@ function render() {
     }
 
     html +=
-      '<div class="pin-card" id="card-' + pin.id + '">' +
+      '<div class="pin-card' + (pin.id === _enteringPinId ? ' pin-card-enter' : '') + '" id="card-' + pin.id + '">' +
         '<div class="pin-top">' +
           '<div class="pin-info">' +
             '<div class="pin-name-row">' +
@@ -634,6 +636,7 @@ function render() {
   });
 
   area.innerHTML = html;
+  _enteringPinId = null;
 
   // Live-update times
   timeTimer = setInterval(function() {
